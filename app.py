@@ -57,7 +57,7 @@ def add_sale_to_sheet(sale_data):
             sale_data['quantity'],
             sale_data['unit_price'],
             sale_data['total_price'],
-            "Pago",  # Status de pagamento
+            sale_data['payment_status'],  # Status de pagamento
             sale_data['payment_method']
         ]
 
@@ -112,7 +112,7 @@ def index():
                 'unit_price': unit_price,  
                 'total_price': quantity * unit_price,
                 'payment_method': payment_method,
-                'payment_status': payment_status
+                'payment_status': payment_status,
             }
 
             # --- 3. Chama a função para adicionar na planilha ---
