@@ -98,6 +98,7 @@ def index():
             quantity = int(request.form.get('quantity', 0))
             payment_method = request.form.get('payment_method')
             unit_price = float(request.form.get('unit_price', 0))
+            payment_status = request.form.get('payment_status')
 
             if not all([customer_name, tshirt_size, quantity > 0, payment_method]):
                 flash('Erro: Todos os campos devem ser preenchidos corretamente.', 'error')
@@ -111,7 +112,7 @@ def index():
                 'unit_price': unit_price,  
                 'total_price': quantity * unit_price,
                 'payment_method': payment_method,
-                'payment_status': "Pago"
+                'payment_status': payment_status
             }
 
             # --- 3. Chama a função para adicionar na planilha ---
