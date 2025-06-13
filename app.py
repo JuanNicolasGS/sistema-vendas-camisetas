@@ -107,8 +107,8 @@ def index():
                 'customer_name': customer_name,
                 'tshirt_size': tshirt_size,
                 'quantity': quantity,
-                'unit_price': 50.0,  # Preço unitário fixo como exemplo
-                'total_price': quantity * 50.0,
+                'unit_price': unit_price,  
+                'total_price': quantity * unit_price,
                 'payment_method': payment_method,
                 'payment_status': "Pago"
             }
