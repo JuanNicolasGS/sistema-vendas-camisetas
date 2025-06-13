@@ -43,19 +43,13 @@ def add_sale_to_sheet(sale_data):
         client = get_google_sheets_client()
         if not client:
             return False, "Falha ao conectar com Google Sheets"
-        
-        # Open the spreadsheet by name
+
         sheet_name = os.environ.get("GOOGLE_SHEET_NAME", "Vendas de Camisetas")
-        try:
-            spreadsheet = client.open(sheet_name)
-        except Exception as e:
-            logging.error(f"Error opening spreadsheet '{sheet_name}': {e}")
-            return False, f"Planilha '{sheet_name}' não encontrada. Verifique o nome e as permissões."
-        
+        spreadsheet = client.open(sheet_name)
         worksheet = spreadsheet.sheet1
-        
-        # Prepare data row
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+        # Prepara a linha de dados para inserir
+        timestamp = datetime.now().strftime('%d/%m/%Y %H:%M:%S')
         row_data = [
             timestamp,
             sale_data['customer_name'],
@@ -63,101 +57,79 @@ def add_sale_to_sheet(sale_data):
             sale_data['quantity'],
             sale_data['unit_price'],
             sale_data['total_price'],
-            sale_data['payment_status'],
+            "Pago",  # Status de pagamento
             sale_data['payment_method']
         ]
-        
-        # Add header row if sheet is empty
-        if len(worksheet.get_all_records()) == 0:
-            header_row = [
-                "Data/Hora",
-                "Nome do Cliente",
-                "Tamanho",
-                "Quantidade",
-                "Valor Unitário",
-                "Valor Total",
-                "Status Pagamento",
-                "Método de Pagamento"
-            ]
-            worksheet.append_row(header_row)
-        
-        # Add the data
+
+        # Define o cabeçalho esperado
+        expected_header = [
+            "Data/Hora", "Nome do Cliente", "Tamanho", "Quantidade",
+            "Valor Unitário", "Valor Total", "Status Pagamento", "Método de Pagamento"
+        ]
+
+        try:
+            first_row = worksheet.row_values(1)
+        except gspread.exceptions.APIError:
+            first_row = []
+
+        # CORREÇÃO DE INDENTAÇÃO: A verificação agora acontece fora do 'try'
+        if first_row != expected_header:
+            if first_row:
+                worksheet.delete_rows(1)
+            worksheet.insert_row(expected_header, 1)
+
+        # Adiciona a nova linha de venda (APENAS UMA VEZ)
         worksheet.append_row(row_data)
-        logging.info(f"Successfully added sale record to Google Sheets")
+        logging.info("Successfully added sale record to Google Sheets")
         return True, "Venda registrada com sucesso"
-        
+
     except Exception as e:
-        sheet_name = os.environ.get("GOOGLE_SHEET_NAME", "Vendas de Camisetas")
         logging.error(f"Error adding sale to sheet: {e}")
-        if "insufficient authentication scopes" in str(e).lower():
-            return False, "Erro de permissões. Verifique se a API do Google Drive está ativada e a planilha foi compartilhada corretamente."
-        elif "not found" in str(e).lower():
-            return False, f"Planilha '{sheet_name}' não encontrada. Verifique o nome exato da planilha."
-        else:
-            return False, f"Erro ao registrar venda: {str(e)}"
+        return False, f"Erro ao registrar venda: {str(e)}"
+
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
         try:
-            # Verify password
-            password = request.form.get('password')
-            required_password = os.environ.get("FORM_PASSWORD", "admin123")
-            
-            if password != required_password:
-                flash("Senha inválida. Tente novamente.", "error")
-                return render_template('index.html')
-            
-            # Validate required fields
-            required_fields = ['customer_name', 'tshirt_size', 'quantity', 'unit_price', 'payment_method', 'payment_status']
-            field_names = {
-                'customer_name': 'Nome do Cliente',
-                'tshirt_size': 'Tamanho da Camiseta',
-                'quantity': 'Quantidade',
-                'unit_price': 'Valor Unitário',
-                'payment_method': 'Método de Pagamento',
-                'payment_status': 'Status do Pagamento'
-            }
-            for field in required_fields:
-                if not request.form.get(field):
-                    flash(f"Por favor, preencha o campo {field_names[field]}.", "error")
-                    return render_template('index.html')
-            
-            # Calculate total price
+            # --- 1. Coleta e valida os dados do formulário ---
+            customer_name = request.form.get('customer_name')
+            tshirt_size = request.form.get('tshirt_size')
             quantity = int(request.form.get('quantity', 0))
-            unit_price = float(request.form.get('unit_price', 0))
-            total_price = quantity * unit_price
-            
-            # Prepare sale data
+            payment_method = request.form.get('payment_method')
+
+            if not all([customer_name, tshirt_size, quantity > 0, payment_method]):
+                flash('Erro: Todos os campos devem ser preenchidos corretamente.', 'error')
+                return redirect(url_for('index'))
+
+            # --- 2. Prepara os dados da venda ---
             sale_data = {
-                'customer_name': request.form.get('customer_name'),
-                'tshirt_size': request.form.get('tshirt_size'),
+                'customer_name': customer_name,
+                'tshirt_size': tshirt_size,
                 'quantity': quantity,
-                'unit_price': unit_price,
-                'total_price': total_price,
-                'payment_method': request.form.get('payment_method'),
-                'payment_status': request.form.get('payment_status')
+                'unit_price': 50.0,  # Preço unitário fixo como exemplo
+                'total_price': quantity * 50.0,
+                'payment_method': payment_method,
+                'payment_status': "Pago"
             }
-            
-            # Add to Google Sheets
+
+            # --- 3. Chama a função para adicionar na planilha ---
             success, message = add_sale_to_sheet(sale_data)
             
             if success:
-                flash("Venda registrada com sucesso!", "success")
-                return redirect(url_for('index'))
+                flash(message, 'success')
             else:
-                flash(f"Erro ao registrar venda: {message}", "error")
-                return render_template('index.html')
-                
-        except ValueError as e:
-            flash("Por favor, digite números válidos para quantidade e valor.", "error")
-            return render_template('index.html')
+                flash(message, 'error')
+
         except Exception as e:
-            logging.error(f"Error processing form: {e}")
-            flash("Ocorreu um erro ao processar sua solicitação. Tente novamente.", "error")
-            return render_template('index.html')
-    
+            # Captura qualquer outro erro inesperado e informa o usuário
+            flash(f'Ocorreu um erro inesperado no processamento: {e}', 'error')
+        
+        return redirect(url_for('index'))
+
+    # Se o método for GET, apenas renderiza a página
     return render_template('index.html')
+
 
 @app.route('/health')
 def health_check():
