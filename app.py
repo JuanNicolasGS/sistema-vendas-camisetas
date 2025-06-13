@@ -97,7 +97,7 @@ def index():
             tshirt_size = request.form.get('tshirt_size')
             quantity = int(request.form.get('quantity', 0))
             payment_method = request.form.get('payment_method')
-            unit_price = float(request.form.get('unit_price'))
+            unit_price = float(request.form.get('unit_price', 0))
 
             if not all([customer_name, tshirt_size, quantity > 0, payment_method]):
                 flash('Erro: Todos os campos devem ser preenchidos corretamente.', 'error')
