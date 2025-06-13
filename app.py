@@ -164,5 +164,10 @@ def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
+# Vercel entry point
+def handler(environ, start_response):
+    return app(environ, start_response)
+
+# For local development
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
